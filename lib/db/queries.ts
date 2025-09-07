@@ -160,6 +160,7 @@ export async function createTeamForUser(name: string) {
           id: currentUser.id,
           name: currentUser.name,
           email: currentUser.email,
+          image: currentUser.image || null,
         }
       }]
     };
