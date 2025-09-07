@@ -1,5 +1,8 @@
 import { getTeamForUser, createTeamForUser } from '@/lib/db/queries';
 
+// Mark this API route as dynamic since it requires authentication
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   let team = await getTeamForUser();
   
