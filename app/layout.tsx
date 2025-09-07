@@ -1,6 +1,5 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Manrope } from 'next/font/google';
 import { getUser, getTeamForUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
 import { SessionProvider } from '@/components/providers/session-provider';
@@ -14,8 +13,6 @@ export const viewport: Viewport = {
   maximumScale: 1
 };
 
-const manrope = Manrope({ subsets: ['latin'] });
-
 export default function RootLayout({
   children
 }: {
@@ -24,7 +21,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark bg-background text-foreground ${manrope.className}`}
+      className="dark bg-background text-foreground font-sans"
     >
       <body className="min-h-[100dvh] bg-background">
         <SessionProvider>
