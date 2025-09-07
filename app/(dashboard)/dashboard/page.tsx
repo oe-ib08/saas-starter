@@ -128,15 +128,10 @@ function TeamMembers() {
             <li key={member.id} className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Avatar>
-                  {/* 
-                    This app doesn't save profile images, but here
-                    is how you'd show them:
-
-                    <AvatarImage
-                      src={member.user.image || ''}
-                      alt={getUserDisplayName(member.user)}
-                    />
-                  */}
+                  <AvatarImage
+                    src={member.user.image || ''}
+                    alt={getUserDisplayName(member.user)}
+                  />
                   <AvatarFallback>
                     {getUserDisplayName(member.user)
                       .split(' ')
@@ -241,7 +236,7 @@ function InviteTeamMember() {
           )}
           <Button
             type="submit"
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-primary hover:bg-primary/90"
             disabled={isInvitePending || !isOwner}
           >
             {isInvitePending ? (

@@ -1,7 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
-import { users, teams, teamMembers } from '@/lib/db/schema';
-import { setSession } from '@/lib/auth/session';
+import { user, teams, teamMembers } from '@/lib/db/schema';
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/payments/stripe';
 import Stripe from 'stripe';
@@ -54,13 +53,13 @@ export async function GET(request: NextRequest) {
       throw new Error("No user ID found in session's client_reference_id.");
     }
 
-    const user = await db
+    const currentUser = await db
       .select()
-      .from(users)
-      .where(eq(users.id, Number(userId)))
+      .from(user)
+      .where(eq(user.id, userId))
       .limit(1);
 
-    if (user.length === 0) {
+    if (currentUser.length === 0) {
       throw new Error('User not found in database.');
     }
 
@@ -69,7 +68,7 @@ export async function GET(request: NextRequest) {
         teamId: teamMembers.teamId,
       })
       .from(teamMembers)
-      .where(eq(teamMembers.userId, user[0].id))
+      .where(eq(teamMembers.userId, currentUser[0].id))
       .limit(1);
 
     if (userTeam.length === 0) {
@@ -88,7 +87,7 @@ export async function GET(request: NextRequest) {
       })
       .where(eq(teams.id, userTeam[0].teamId));
 
-    await setSession(user[0]);
+    // Better-auth handles session management automatically
     return NextResponse.redirect(new URL('/dashboard', request.url));
   } catch (error) {
     console.error('Error handling successful checkout:', error);

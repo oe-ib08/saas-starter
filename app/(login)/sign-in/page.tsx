@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
-import { Login } from '../login';
+import { BetterAuthLogin } from '@/components/auth/better-auth-login';
 
 export default function SignInPage() {
   return (
     <Suspense>
-      <Login mode="signin" />
+      <BetterAuthLogin mode="signin" />
     </Suspense>
   );
 }

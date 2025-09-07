@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Manrope } from 'next/font/google';
 import { getUser, getTeamForUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
+import { SessionProvider } from '@/components/providers/session-provider';
 
 export const metadata: Metadata = {
   title: 'Next.js SaaS Starter',
@@ -23,21 +24,23 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}
+      className={`dark bg-background text-foreground ${manrope.className}`}
     >
-      <body className="min-h-[100dvh] bg-gray-50">
-        <SWRConfig
-          value={{
-            fallback: {
-              // We do NOT await here
-              // Only components that read this data will suspend
-              '/api/user': getUser(),
-              '/api/team': getTeamForUser()
-            }
-          }}
-        >
-          {children}
-        </SWRConfig>
+      <body className="min-h-[100dvh] bg-background">
+        <SessionProvider>
+          <SWRConfig
+            value={{
+              fallback: {
+                // We do NOT await here
+                // Only components that read this data will suspend
+                '/api/user': getUser(),
+                '/api/team': getTeamForUser()
+              }
+            }}
+          >
+            {children}
+          </SWRConfig>
+        </SessionProvider>
       </body>
     </html>
   );

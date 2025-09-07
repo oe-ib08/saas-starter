@@ -189,7 +189,7 @@ export type NewInvitation = typeof invitations.$inferInsert;
 
 export type TeamDataWithMembers = Team & {
   teamMembers: (TeamMember & {
-    user: Pick<User, 'id' | 'name' | 'email' | 'image'>;
+    user: Pick<User, 'id' | 'name' | 'email'>;
   })[];
 };
 

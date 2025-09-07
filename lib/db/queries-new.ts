@@ -103,7 +103,6 @@ export async function getTeamForUser() {
                   id: true,
                   name: true,
                   email: true,
-                  image: true,
                 }
               }
             }
@@ -134,11 +133,7 @@ export async function createTeamForUser(name: string) {
   const team = await db.transaction(async (tx) => {
     const [newTeam] = await tx
       .insert(teams)
-      .values({ 
-        name,
-        planName: 'Free',
-        subscriptionStatus: 'trialing'
-      })
+      .values({ name })
       .returning();
 
     await tx.insert(teamMembers).values({
@@ -147,22 +142,7 @@ export async function createTeamForUser(name: string) {
       role: 'owner',
     });
 
-    // Return the team with members structure
-    return {
-      ...newTeam,
-      teamMembers: [{
-        id: 0, // temporary ID
-        userId: currentUser.id,
-        teamId: newTeam.id,
-        role: 'owner',
-        joinedAt: new Date(),
-        user: {
-          id: currentUser.id,
-          name: currentUser.name,
-          email: currentUser.email,
-        }
-      }]
-    };
+    return newTeam;
   });
 
   return team;

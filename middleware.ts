@@ -1,46 +1,32 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { signToken, verifyToken } from '@/lib/auth/session';
 
 const protectedRoutes = '/dashboard';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get('session');
+  const betterAuthSession = request.cookies.get('better-auth.session_token'); // Better-auth session cookie
   const isProtectedRoute = pathname.startsWith(protectedRoutes);
 
-  if (isProtectedRoute && !sessionCookie) {
-    return NextResponse.redirect(new URL('/sign-in', request.url));
-  }
-
-  let res = NextResponse.next();
-
-  if (sessionCookie && request.method === 'GET') {
-    try {
-      const parsed = await verifyToken(sessionCookie.value);
-      const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-      res.cookies.set({
-        name: 'session',
-        value: await signToken({
-          ...parsed,
-          expires: expiresInOneDay.toISOString()
-        }),
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        expires: expiresInOneDay
-      });
-    } catch (error) {
-      console.error('Error updating session:', error);
-      res.cookies.delete('session');
-      if (isProtectedRoute) {
-        return NextResponse.redirect(new URL('/sign-in', request.url));
-      }
+  // Handle OAuth callback redirects
+  if (pathname.startsWith('/api/auth/callback/') && request.method === 'GET') {
+    const callbackURL = request.nextUrl.searchParams.get('callbackURL');
+    if (callbackURL) {
+      // Let the auth handler process first, then we'll redirect
+      const response = NextResponse.next();
+      response.headers.set('x-callback-url', callbackURL);
+      return response;
     }
   }
 
-  return res;
+  // Check if user is authenticated with better-auth
+  const isAuthenticated = betterAuthSession;
+
+  if (isProtectedRoute && !isAuthenticated) {
+    return NextResponse.redirect(new URL('/sign-in', request.url));
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
