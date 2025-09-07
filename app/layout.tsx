@@ -1,6 +1,5 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { getUser, getTeamForUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
 import { SessionProvider } from '@/components/providers/session-provider';
 
@@ -27,12 +26,8 @@ export default function RootLayout({
         <SessionProvider>
           <SWRConfig
             value={{
-              fallback: {
-                // We do NOT await here
-                // Only components that read this data will suspend
-                '/api/user': getUser(),
-                '/api/team': getTeamForUser()
-              }
+              // Remove fallback data that requires authentication
+              // Client-side components will fetch this data as needed
             }}
           >
             {children}
