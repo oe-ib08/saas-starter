@@ -55,8 +55,6 @@ function ManageSubscription() {
               <p className="text-sm text-muted-foreground">
                 {teamData?.subscriptionStatus === 'active'
                   ? 'Billed monthly'
-                  : teamData?.subscriptionStatus === 'trialing'
-                  ? 'Trial period'
                   : 'No active subscription'}
               </p>
             </div>

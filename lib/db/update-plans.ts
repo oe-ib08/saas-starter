@@ -11,7 +11,7 @@ export async function updateTeamsWithPlans() {
       .update(teams)
       .set({
         planName: 'Free',
-        subscriptionStatus: 'trialing'
+        subscriptionStatus: 'inactive'
       })
       .where(or(isNull(teams.planName), eq(teams.planName, '')));
     

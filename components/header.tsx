@@ -2,6 +2,7 @@
 
 import Logo from "@/components/navbar-components/logo"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -21,12 +22,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from "next/link"
-import { Home, LogOut } from 'lucide-react';
+import { Home, LogOut, Search, ArrowRight, Sparkles } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { User, TeamDataWithMembers } from '@/lib/db/schema';
 import useSWR, { mutate } from 'swr';
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { PlanBadge } from '@/components/ui/plan-badge';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -73,36 +74,101 @@ function UserMenu() {
   }
 
   return (
-    <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-      <DropdownMenuTrigger>
-        <div className="relative">
-          <Avatar className="cursor-pointer size-9">
-            <AvatarImage src={user.image || ''} alt={user.name || ''} />
-            <AvatarFallback>
-              {user.name
-                ? user.name.split(' ').map((n) => n[0]).join('')
-                : user.email.split('@')[0].substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <PlanBadge planName={team?.planName} />
-        </div>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="flex flex-col gap-1">
-        <DropdownMenuItem className="cursor-pointer">
-          <Link href="/dashboard" className="flex w-full items-center">
-            <Home className="mr-2 h-4 w-4" />
-            <span>Dashboard</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-          className="w-full cursor-pointer"
-          onClick={handleSignOut}
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Sign out</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center gap-2">
+      <UpgradeButton planName={team?.planName} />
+      <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+        <DropdownMenuTrigger>
+          <div className="relative">
+            <Avatar className="cursor-pointer size-9">
+              <AvatarImage src={user.image || ''} alt={user.name || ''} />
+              <AvatarFallback>
+                {user.name
+                  ? user.name.split(' ').map((n) => n[0]).join('')
+                  : user.email.split('@')[0].substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <PlanBadge planName={team?.planName} />
+          </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="flex flex-col gap-1">
+          <DropdownMenuItem className="cursor-pointer">
+            <Link href="/dashboard" className="flex w-full items-center">
+              <Home className="mr-2 h-4 w-4" />
+              <span>Dashboard</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            className="w-full cursor-pointer"
+            onClick={handleSignOut}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Sign out</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+function SearchComponent() {
+  const id = useId();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      // You can implement search functionality here
+      console.log('Searching for:', searchQuery);
+      // For now, we'll just log the search query
+      // You could navigate to a search results page or trigger a search
+    }
+  };
+
+  return (
+    <form onSubmit={handleSearch} className="relative">
+      <Input
+        id={id}
+        className="peer ps-9 pe-9 w-64 max-md:w-48"
+        placeholder="Search..."
+        type="search"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+      <div className="text-muted-foreground/80 pointer-events-none absolute inset-y-0 start-0 flex items-center justify-center ps-3 peer-disabled:opacity-50">
+        <Search size={16} />
+      </div>
+      <button
+        className="text-muted-foreground/80 hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 absolute inset-y-0 end-0 flex h-full w-9 items-center justify-center rounded-e-md transition-[color,box-shadow] outline-none focus:z-10 focus-visible:ring-[3px] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label="Submit search"
+        type="submit"
+      >
+        <ArrowRight size={16} aria-hidden="true" />
+      </button>
+    </form>
+  );
+}
+
+function UpgradeButton({ planName }: { planName?: string | null }) {
+  // Only show for free users
+  if (!planName || planName.toLowerCase() !== 'free') {
+    return null;
+  }
+
+  return (
+    <Button 
+      size="sm" 
+      className="text-sm bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white border-0"
+      asChild
+    >
+      <Link href="/pricing">
+        <Sparkles
+          className="opacity-80 sm:-ms-1"
+          size={16}
+          aria-hidden="true"
+        />
+        <span className="max-sm:sr-only">Upgrade</span>
+      </Link>
+    </Button>
   );
 }
 
@@ -147,22 +213,26 @@ export default function Header() {
                 </svg>
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-36 p-1 md:hidden">
-              <NavigationMenu className="max-w-none *:w-full">
-                <NavigationMenuList className="flex-col items-start gap-0 md:gap-2">
-                  {navigationLinks.map((link, index) => (
-                    <NavigationMenuItem key={index} className="w-full">
-                      <NavigationMenuLink
-                        href={link.href}
-                        className="py-1.5"
-                        active={link.active}
-                      >
-                        {link.label}
-                      </NavigationMenuLink>
-                    </NavigationMenuItem>
-                  ))}
-                </NavigationMenuList>
-              </NavigationMenu>
+            <PopoverContent align="start" className="w-80 p-4 md:hidden">
+              <div className="space-y-4">
+                {/* Mobile search */}
+                <SearchComponent />
+                <NavigationMenu className="max-w-none *:w-full">
+                  <NavigationMenuList className="flex-col items-start gap-0 md:gap-2">
+                    {navigationLinks.map((link, index) => (
+                      <NavigationMenuItem key={index} className="w-full">
+                        <NavigationMenuLink
+                          href={link.href}
+                          className="py-1.5"
+                          active={link.active}
+                        >
+                          {link.label}
+                        </NavigationMenuLink>
+                      </NavigationMenuItem>
+                    ))}
+                  </NavigationMenuList>
+                </NavigationMenu>
+              </div>
             </PopoverContent>
           </Popover>
           {/* Main nav */}
@@ -170,22 +240,28 @@ export default function Header() {
             <Link href="/" className="text-primary hover:text-primary/90">
               <Logo />
             </Link>
-            {/* Navigation menu */}
-            <NavigationMenu className="max-md:hidden">
-              <NavigationMenuList className="gap-2">
-                {navigationLinks.map((link, index) => (
-                  <NavigationMenuItem key={index}>
-                    <NavigationMenuLink
-                      active={link.active}
-                      href={link.href}
-                      className="text-muted-foreground hover:text-primary py-1.5 font-medium"
-                    >
-                      {link.label}
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
-                ))}
-              </NavigationMenuList>
-            </NavigationMenu>
+            {/* Navigation menu and search */}
+            <div className="flex items-center gap-4">
+              <NavigationMenu className="max-md:hidden">
+                <NavigationMenuList className="gap-2">
+                  {navigationLinks.map((link, index) => (
+                    <NavigationMenuItem key={index}>
+                      <NavigationMenuLink
+                        active={link.active}
+                        href={link.href}
+                        className="text-muted-foreground hover:text-primary py-1.5 font-medium"
+                      >
+                        {link.label}
+                      </NavigationMenuLink>
+                    </NavigationMenuItem>
+                  ))}
+                </NavigationMenuList>
+              </NavigationMenu>
+              {/* Search component beside nav buttons */}
+              <div className="hidden md:block">
+                <SearchComponent />
+              </div>
+            </div>
           </div>
         </div>
         {/* Right side */}

@@ -27,7 +27,7 @@ export function PlanBadge({ planName, className }: PlanBadgeProps) {
   return (
     <div
       className={cn(
-        "absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded-full text-xs font-medium shadow-lg border-2 border-white",
+        "absolute -bottom-0.5 -right-0.5 px-1 py-0.5 rounded-full text-[8px] font-medium shadow-lg border border-white",
         getBadgeColor(displayPlan),
         className
       )}

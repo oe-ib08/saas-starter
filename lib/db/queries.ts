@@ -137,7 +137,7 @@ export async function createTeamForUser(name: string) {
       .values({ 
         name,
         planName: 'Free',
-        subscriptionStatus: 'trialing'
+        subscriptionStatus: 'inactive'
       })
       .returning();
 

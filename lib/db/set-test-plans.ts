@@ -22,7 +22,7 @@ export async function setTestPlanData() {
         .update(teams)
         .set({
           planName: testPlans[i],
-          subscriptionStatus: testPlans[i] === 'Free' ? 'trialing' : 'active'
+          subscriptionStatus: testPlans[i] === 'Free' ? 'inactive' : 'active'
         })
         .where(eq(teams.id, allTeams[i].id));
       
