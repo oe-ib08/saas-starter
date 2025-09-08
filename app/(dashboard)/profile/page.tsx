@@ -16,6 +16,8 @@ import { useDebouncedCallback } from '@/lib/hooks/use-debounced-callback';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/providers/theme-provider';
 import { PasswordStrengthIndicator } from '@/components/ui/password-strength';
+import { Switch } from '@/components/ui/switch';
+import { Select } from '@/components/ui/select';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -41,6 +43,7 @@ export default function ProfilePage() {
     name: '',
     email: '',
   });
+  const [activeSection, setActiveSection] = useState('profile');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -50,6 +53,7 @@ export default function ProfilePage() {
       email: true,
       push: true,
       marketing: false,
+      emailFrequency: 'instant' as 'instant' | 'daily' | 'weekly',
     },
   });
   const [passwordData, setPasswordData] = useState({
@@ -107,10 +111,11 @@ export default function ProfilePage() {
         email: user.email || '',
         image: user.image || '',
         theme: userTheme,
-        notifications: user.notifications || {
-          email: true,
-          push: true,
-          marketing: false,
+        notifications: {
+          email: user.notifications?.email ?? true,
+          push: user.notifications?.push ?? true,
+          marketing: user.notifications?.marketing ?? false,
+          emailFrequency: (user.notifications as any)?.emailFrequency || 'instant' as 'instant' | 'daily' | 'weekly',
         },
       });
       // Sync with theme provider if user has a saved theme preference
@@ -187,6 +192,71 @@ export default function ProfilePage() {
     // Update form data and trigger auto-save
     handleFormChange({ theme: themeValue });
   }, [setTheme, handleFormChange]);
+
+  // Smooth scroll to section
+  const scrollToSection = useCallback((sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+      setActiveSection(sectionId);
+    }
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case '1':
+            e.preventDefault();
+            scrollToSection('profile');
+            break;
+          case '2':
+            e.preventDefault();
+            scrollToSection('theme');
+            break;
+          case '3':
+            e.preventDefault();
+            scrollToSection('notifications');
+            break;
+          case '4':
+            e.preventDefault();
+            scrollToSection('security');
+            break;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [scrollToSection]);
+
+  // Intersection Observer to track active section
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      { 
+        rootMargin: '-20% 0px -80% 0px'
+      }
+    );
+
+    const sections = ['profile', 'theme', 'notifications', 'security'];
+    sections.forEach((sectionId) => {
+      const element = document.getElementById(sectionId);
+      if (element) observer.observe(element);
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -323,23 +393,62 @@ export default function ProfilePage() {
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Sidebar Navigation */}
         <div className="lg:col-span-3">
-          <nav className="space-y-2">
-            <a href="#profile" className="flex items-center gap-2 p-3 text-sm font-medium rounded-lg bg-muted text-foreground">
+          <nav className="space-y-2 sticky top-4">
+            <div className="mb-4 text-xs text-muted-foreground font-medium">
+              Quick Navigation (Ctrl + 1-4)
+            </div>
+            <button
+              onClick={() => scrollToSection('profile')}
+              className={cn(
+                "flex items-center gap-2 p-3 text-sm font-medium rounded-lg w-full text-left transition-colors",
+                activeSection === 'profile' 
+                  ? "bg-primary text-primary-foreground" 
+                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
+              )}
+            >
               <User className="h-4 w-4" />
               Profile
-            </a>
-            <a href="#theme" className="flex items-center gap-2 p-3 text-sm font-medium rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground">
+              <span className="ml-auto text-xs opacity-60">Ctrl+1</span>
+            </button>
+            <button
+              onClick={() => scrollToSection('theme')}
+              className={cn(
+                "flex items-center gap-2 p-3 text-sm font-medium rounded-lg w-full text-left transition-colors",
+                activeSection === 'theme' 
+                  ? "bg-primary text-primary-foreground" 
+                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
+              )}
+            >
               <Palette className="h-4 w-4" />
               Theme
-            </a>
-            <a href="#notifications" className="flex items-center gap-2 p-3 text-sm font-medium rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground">
+              <span className="ml-auto text-xs opacity-60">Ctrl+2</span>
+            </button>
+            <button
+              onClick={() => scrollToSection('notifications')}
+              className={cn(
+                "flex items-center gap-2 p-3 text-sm font-medium rounded-lg w-full text-left transition-colors",
+                activeSection === 'notifications' 
+                  ? "bg-primary text-primary-foreground" 
+                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
+              )}
+            >
               <Bell className="h-4 w-4" />
               Notifications
-            </a>
-            <a href="#security" className="flex items-center gap-2 p-3 text-sm font-medium rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground">
+              <span className="ml-auto text-xs opacity-60">Ctrl+3</span>
+            </button>
+            <button
+              onClick={() => scrollToSection('security')}
+              className={cn(
+                "flex items-center gap-2 p-3 text-sm font-medium rounded-lg w-full text-left transition-colors",
+                activeSection === 'security' 
+                  ? "bg-primary text-primary-foreground" 
+                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
+              )}
+            >
               <Shield className="h-4 w-4" />
               Security
-            </a>
+              <span className="ml-auto text-xs opacity-60">Ctrl+4</span>
+            </button>
           </nav>
         </div>
 
@@ -486,25 +595,64 @@ export default function ProfilePage() {
                 onValueChange={handleThemeChange}
                 className="grid grid-cols-1 md:grid-cols-3 gap-4"
               >
-                <div className="flex items-center space-x-2 border rounded-lg p-4">
+                <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                   <RadioGroupItem value="light" id="light" />
                   <Label htmlFor="light" className="flex-1 cursor-pointer">
-                    <div className="font-medium">Light</div>
-                    <div className="text-sm text-muted-foreground">Clean and bright</div>
+                    <div className="space-y-2">
+                      <div className="font-medium">Light</div>
+                      <div className="text-sm text-muted-foreground">Clean and bright</div>
+                      {/* Light theme preview */}
+                      <div className="mt-2 h-12 w-full rounded border bg-white">
+                        <div className="flex h-full">
+                          <div className="flex-1 bg-gray-50 rounded-l"></div>
+                          <div className="flex-1 bg-white border-l border-gray-200"></div>
+                          <div className="w-8 bg-blue-500 rounded-r"></div>
+                        </div>
+                      </div>
+                    </div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4">
+                <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                   <RadioGroupItem value="dark" id="dark" />
                   <Label htmlFor="dark" className="flex-1 cursor-pointer">
-                    <div className="font-medium">Dark</div>
-                    <div className="text-sm text-muted-foreground">Easy on the eyes</div>
+                    <div className="space-y-2">
+                      <div className="font-medium">Dark</div>
+                      <div className="text-sm text-muted-foreground">Easy on the eyes</div>
+                      {/* Dark theme preview */}
+                      <div className="mt-2 h-12 w-full rounded border bg-gray-900">
+                        <div className="flex h-full">
+                          <div className="flex-1 bg-gray-800 rounded-l"></div>
+                          <div className="flex-1 bg-gray-900 border-l border-gray-700"></div>
+                          <div className="w-8 bg-blue-400 rounded-r"></div>
+                        </div>
+                      </div>
+                    </div>
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 border rounded-lg p-4">
+                <div className="flex items-center space-x-2 border rounded-lg p-4 hover:bg-muted/50 transition-colors">
                   <RadioGroupItem value="system" id="system" />
                   <Label htmlFor="system" className="flex-1 cursor-pointer">
-                    <div className="font-medium">System</div>
-                    <div className="text-sm text-muted-foreground">Match your device</div>
+                    <div className="space-y-2">
+                      <div className="font-medium">System</div>
+                      <div className="text-sm text-muted-foreground">Match your device</div>
+                      {/* System theme preview - split preview */}
+                      <div className="mt-2 h-12 w-full rounded border overflow-hidden">
+                        <div className="flex h-full">
+                          <div className="flex-1 bg-white">
+                            <div className="flex h-full">
+                              <div className="flex-1 bg-gray-50"></div>
+                              <div className="w-4 bg-blue-500"></div>
+                            </div>
+                          </div>
+                          <div className="flex-1 bg-gray-900">
+                            <div className="flex h-full">
+                              <div className="flex-1 bg-gray-800"></div>
+                              <div className="w-4 bg-blue-400"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </Label>
                 </div>
               </RadioGroup>
@@ -522,57 +670,74 @@ export default function ProfilePage() {
                 Configure how you want to receive notifications
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Email Notifications</div>
-                  <div className="text-sm text-muted-foreground">
-                    Receive notifications via email
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 rounded-lg border">
+                  <div className="space-y-1">
+                    <div className="font-medium">Email Notifications</div>
+                    <div className="text-sm text-muted-foreground">
+                      Receive important updates and alerts via email
+                    </div>
                   </div>
+                  <Switch
+                    checked={formData.notifications.email}
+                    onChange={(e) => handleFormChange({
+                      notifications: { ...formData.notifications, email: e.target.checked }
+                    })}
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  checked={formData.notifications.email}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    notifications: { ...prev.notifications, email: e.target.checked }
-                  }))}
-                  className="h-4 w-4"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Push Notifications</div>
-                  <div className="text-sm text-muted-foreground">
-                    Receive push notifications in your browser
+                
+                {formData.notifications.email && (
+                  <div className="ml-4 p-4 bg-muted/30 rounded-lg">
+                    <Label htmlFor="emailFrequency" className="text-sm font-medium">
+                      Email Frequency
+                    </Label>
+                    <Select
+                      value={formData.notifications.emailFrequency}
+                      onChange={(e) => handleFormChange({
+                        notifications: { 
+                          ...formData.notifications, 
+                          emailFrequency: e.target.value as 'instant' | 'daily' | 'weekly'
+                        }
+                      })}
+                      className="mt-2"
+                    >
+                      <option value="instant">Instant notifications</option>
+                      <option value="daily">Daily digest</option>
+                      <option value="weekly">Weekly summary</option>
+                    </Select>
                   </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={formData.notifications.push}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    notifications: { ...prev.notifications, push: e.target.checked }
-                  }))}
-                  className="h-4 w-4"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Marketing Emails</div>
-                  <div className="text-sm text-muted-foreground">
-                    Receive emails about new features and updates
+                )}
+
+                <div className="flex items-center justify-between p-4 rounded-lg border">
+                  <div className="space-y-1">
+                    <div className="font-medium">Push Notifications</div>
+                    <div className="text-sm text-muted-foreground">
+                      Get real-time notifications in your browser
+                    </div>
                   </div>
+                  <Switch
+                    checked={formData.notifications.push}
+                    onChange={(e) => handleFormChange({
+                      notifications: { ...formData.notifications, push: e.target.checked }
+                    })}
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  checked={formData.notifications.marketing}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    notifications: { ...prev.notifications, marketing: e.target.checked }
-                  }))}
-                  className="h-4 w-4"
-                />
+
+                <div className="flex items-center justify-between p-4 rounded-lg border">
+                  <div className="space-y-1">
+                    <div className="font-medium">Marketing Emails</div>
+                    <div className="text-sm text-muted-foreground">
+                      Receive updates about new features, tips, and special offers
+                    </div>
+                  </div>
+                  <Switch
+                    checked={formData.notifications.marketing}
+                    onChange={(e) => handleFormChange({
+                      notifications: { ...formData.notifications, marketing: e.target.checked }
+                    })}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
