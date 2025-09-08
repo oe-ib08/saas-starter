@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { User, Camera, Mail, Shield, Bell, Palette, Save, Trash2, Eye, EyeOff } from 'lucide-react';
+import { User, Camera, Mail, Shield, Bell, Palette, Save, Trash2, Eye, EyeOff, Clock, Check } from 'lucide-react';
 import useSWR, { mutate } from 'swr';
 import { User as UserType } from '@/lib/db/schema';
 import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
+import { useDebouncedCallback } from '@/lib/hooks/use-debounced-callback';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -28,6 +29,8 @@ export default function ProfilePage() {
   const { data: user, isLoading } = useSWR<ProfileData>('/api/user', fetcher);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -71,10 +74,11 @@ export default function ProfilePage() {
     }
   }, [user]);
 
-  const handleSaveProfile = async () => {
-    setIsSaving(true);
+  const handleSaveProfile = async (showSuccessMessage = true) => {
+    const isSavingState = showSuccessMessage ? setIsSaving : setIsAutoSaving;
+    isSavingState(true);
     setError(null);
-    setSuccess(null);
+    if (showSuccessMessage) setSuccess(null);
     
     try {
       const response = await fetch('/api/user', {
@@ -87,9 +91,12 @@ export default function ProfilePage() {
 
       if (response.ok) {
         mutate('/api/user');
-        setIsEditing(false);
-        setSuccess('Profile updated successfully!');
-        setTimeout(() => setSuccess(null), 3000);
+        setLastSaved(new Date());
+        if (showSuccessMessage) {
+          setIsEditing(false);
+          setSuccess('Profile updated successfully!');
+          setTimeout(() => setSuccess(null), 3000);
+        }
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to update profile');
@@ -98,9 +105,24 @@ export default function ProfilePage() {
       console.error('Error updating profile:', error);
       setError('An unexpected error occurred');
     } finally {
-      setIsSaving(false);
+      isSavingState(false);
     }
   };
+
+  // Auto-save function with debouncing
+  const debouncedAutoSave = useDebouncedCallback(() => {
+    if (isEditing) {
+      handleSaveProfile(false);
+    }
+  }, 2000);
+
+  // Handle form changes and trigger auto-save
+  const handleFormChange = useCallback((updates: Partial<typeof formData>) => {
+    setFormData(prev => ({ ...prev, ...updates }));
+    if (isEditing) {
+      debouncedAutoSave();
+    }
+  }, [isEditing, debouncedAutoSave]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -233,6 +255,23 @@ export default function ProfilePage() {
                 <CardDescription>
                   Update your personal information and profile picture
                 </CardDescription>
+                {isEditing && (
+                  <div className="flex items-center gap-2 mt-2 text-sm">
+                    {isAutoSaving ? (
+                      <>
+                        <Clock className="h-3 w-3 animate-spin" />
+                        <span className="text-muted-foreground">Auto-saving...</span>
+                      </>
+                    ) : lastSaved ? (
+                      <>
+                        <Check className="h-3 w-3 text-green-600" />
+                        <span className="text-muted-foreground">
+                          Last saved {lastSaved.toLocaleTimeString()}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                )}
               </div>
               {!isEditing ? (
                 <Button onClick={() => setIsEditing(true)} variant="outline">
@@ -248,7 +287,7 @@ export default function ProfilePage() {
                     Cancel
                   </Button>
                   <Button 
-                    onClick={handleSaveProfile} 
+                    onClick={() => handleSaveProfile(true)} 
                     disabled={isSaving}
                     size="sm"
                   >
@@ -287,7 +326,7 @@ export default function ProfilePage() {
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={(e) => handleFormChange({ name: e.target.value })}
                       disabled={!isEditing}
                     />
                   </div>
@@ -297,7 +336,7 @@ export default function ProfilePage() {
                       id="email"
                       type="email"
                       value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) => handleFormChange({ email: e.target.value })}
                       disabled={!isEditing}
                     />
                   </div>
