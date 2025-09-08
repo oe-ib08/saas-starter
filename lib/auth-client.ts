@@ -11,4 +11,6 @@ export const {
     useSession,
     getSession,
     sendVerificationEmail,
+    linkSocial,
+    forgetPassword,
 } = authClient;
