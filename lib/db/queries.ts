@@ -125,6 +125,30 @@ export async function logActivity(teamId: number, userId: string, action: string
   });
 }
 
+export async function getUserWithSubscription(userId: string) {
+  const result = await db
+    .select({
+      user: user,
+      team: teams
+    })
+    .from(user)
+    .leftJoin(teamMembers, eq(user.id, teamMembers.userId))
+    .leftJoin(teams, eq(teamMembers.teamId, teams.id))
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  if (result.length === 0) {
+    return null;
+  }
+
+  return {
+    ...result[0].user,
+    stripeSubscriptionId: result[0].team?.stripeSubscriptionId || null,
+    stripeSubscriptionStatus: result[0].team?.subscriptionStatus || null,
+    planName: result[0].team?.planName || 'Free'
+  };
+}
+
 export async function createTeamForUser(name: string) {
   const currentUser = await getUser();
   if (!currentUser) {

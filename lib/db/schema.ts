@@ -122,6 +122,17 @@ export const invitations = pgTable('invitations', {
   status: varchar('status', { length: 20 }).notNull().default('pending'),
 });
 
+export const messages = pgTable('messages', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id),
+  name: varchar('name', { length: 8 }).notNull(),
+  message: varchar('message', { length: 100 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
 // Relations
 export const teamsRelations = relations(teams, ({ many }) => ({
   teamMembers: many(teamMembers),
@@ -170,6 +181,13 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
   }),
   invitedBy: one(user, {
     fields: [invitations.invitedBy],
+    references: [user.id],
+  }),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  user: one(user, {
+    fields: [messages.userId],
     references: [user.id],
   }),
 }));

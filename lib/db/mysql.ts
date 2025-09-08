@@ -1,0 +1,56 @@
+import mysql from 'mysql2/promise';
+
+// Create connection pool for better connection management
+const mysqlPool = mysql.createPool({
+  host: 'srv1776.hstgr.io',
+  port: 3306,
+  user: 'u718604514_optume_studios',
+  password: 'GreatLoveStay100@',
+  database: 'u718604514_optume_studios',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+export { mysqlPool as mysqlConnection };
+
+// Helper function to execute queries
+export async function executeQuery(query: string, params: any[] = []) {
+  try {
+    const [results] = await mysqlPool.execute(query, params);
+    return results;
+  } catch (error) {
+    console.error('MySQL query error:', error);
+    throw error;
+  }
+}
+
+// Initialize messages table
+export async function initializeMessagesTable() {
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS messages (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id VARCHAR(255) NOT NULL,
+      user_email VARCHAR(255) NOT NULL,
+      user_name VARCHAR(255),
+      title VARCHAR(500) NOT NULL,
+      content TEXT NOT NULL,
+      category VARCHAR(100),
+      priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
+      status ENUM('pending', 'in_progress', 'completed', 'rejected') DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_user_id (user_id),
+      INDEX idx_status (status),
+      INDEX idx_created_at (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `;
+
+  try {
+    await executeQuery(createTableQuery);
+    console.log('Messages table initialized successfully');
+  } catch (error) {
+    console.error('Error initializing messages table:', error);
+    throw error;
+  }
+}
