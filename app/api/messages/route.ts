@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { executeQuery, initializeMessagesTable } from '@/lib/db/mysql';
+import { executeQuery, initializeMessagesTable, initializeMessageLikesTable } from '@/lib/db/mysql';
 import { getUserWithSubscription } from '@/lib/db/queries';
 
-// Initialize table on first import
+// Initialize tables on first import
 initializeMessagesTable().catch(console.error);
+initializeMessageLikesTable().catch(console.error);
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,25 +17,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all messages (admin view) or user's own messages
-    const isAdmin = session.user.email === 'admin@example.com'; // Replace with your admin logic
+    // Check if user is admin (you can enhance this logic)
+    const isAdmin = session.user.email === 'admin@example.com' || session.user.role === 'admin';
     
     let query: string;
     let params: any[] = [];
 
     if (isAdmin) {
-      // Admin can see all messages
+      // Admin can see all messages with like counts
       query = `
         SELECT id, user_id, user_email, user_name, title, content, category, 
-               priority, status, created_at, updated_at
+               priority, status, like_count, created_at, updated_at
         FROM messages
         ORDER BY created_at DESC
       `;
     } else {
-      // Users can only see their own messages
+      // Users can only see their own messages with like counts
       query = `
         SELECT id, user_id, user_email, user_name, title, content, category,
-               priority, status, created_at, updated_at
+               priority, status, like_count, created_at, updated_at
         FROM messages
         WHERE user_id = ?
         ORDER BY created_at DESC
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     const messages = await executeQuery(query, params);
-    return NextResponse.json({ messages });
+    return NextResponse.json({ messages, isAdmin });
 
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -146,7 +147,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const isOwner = messageResult[0].user_id === session.user.id;
-    const isAdmin = session.user.email === 'admin@example.com'; // Replace with your admin logic
+    const isAdmin = session.user.email === 'admin@example.com' || session.user.role === 'admin';
 
     if (!isOwner && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -189,7 +190,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const isOwner = messageResult[0].user_id === session.user.id;
-    const isAdmin = session.user.email === 'admin@example.com'; // Replace with your admin logic
+    const isAdmin = session.user.email === 'admin@example.com' || session.user.role === 'admin';
 
     if (!isOwner && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
