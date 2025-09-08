@@ -28,6 +28,9 @@ yarn-error.log*
 # local env files
 .env
 
+# migration scripts (temporary)
+migrate-*.js
+
 # vercel
 .vercel
 

@@ -1,4 +1,4 @@
-import { getUser } from '@/lib/db/queries';
+import { getUser, getUserWithSubscription } from '@/lib/db/queries';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db/drizzle';
 import { user as userTable, userPreferences } from '@/lib/db/schema';
@@ -15,6 +15,12 @@ export async function GET() {
       return Response.json({ error: 'User not authenticated' }, { status: 401 });
     }
 
+    // Get user with subscription information
+    const userWithSubscription = await getUserWithSubscription(user.id);
+    if (!userWithSubscription) {
+      return Response.json({ error: 'User not found' }, { status: 404 });
+    }
+
     // Get user preferences
     const preferences = await db
       .select()
@@ -23,13 +29,14 @@ export async function GET() {
       .limit(1);
 
     const userWithPreferences = {
-      ...user,
+      ...userWithSubscription,
       theme: preferences[0]?.theme || 'light',
       notifications: {
         email: preferences[0]?.emailNotifications ?? true,
         push: preferences[0]?.pushNotifications ?? true,
         marketing: preferences[0]?.marketingEmails ?? false,
-      }
+      },
+      isPro: userWithSubscription.stripeSubscriptionId && userWithSubscription.stripeSubscriptionStatus === 'active'
     };
 
     return Response.json(userWithPreferences);

@@ -28,6 +28,7 @@ interface Message {
   category: string;
   priority: 'low' | 'medium' | 'high';
   status: 'pending' | 'in_progress' | 'completed' | 'rejected';
+  like_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -92,6 +93,7 @@ export default function MessagesPage() {
   }
 
   const messages: Message[] = messagesData.messages || [];
+  const isAdmin = messagesData.isAdmin || false;
   const filteredMessages = messages.filter(message => 
     filter === 'all' ? true : message.status === filter
   );
@@ -144,10 +146,24 @@ export default function MessagesPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Messages</h1>
-        <Button onClick={() => router.push('/submit')}>
-          Submit New Message
-        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">
+            {isAdmin ? 'Admin: All Messages' : 'Your Messages'}
+          </h1>
+          {isAdmin && (
+            <p className="text-sm text-muted-foreground">
+              You have admin access to moderate all messages
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => router.push('/submit')}>
+            Submit New Message
+          </Button>
+          <Button variant="outline" onClick={() => router.push('/feed')}>
+            View Feed
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -188,9 +204,12 @@ export default function MessagesPage() {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-medium text-sm line-clamp-1">{message.title}</h4>
-                      <Badge className={`text-xs ${priorityColors[message.priority]}`}>
-                        {message.priority}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge className={`text-xs ${priorityColors[message.priority]}`}>
+                          {message.priority}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">♥ {message.like_count}</span>
+                      </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <Badge className={`text-xs ${statusColors[message.status]}`}>
@@ -228,6 +247,7 @@ export default function MessagesPage() {
                       {selectedMessage.status.replace('_', ' ')}
                     </Badge>
                     <Badge variant="outline">{selectedMessage.category}</Badge>
+                    <Badge variant="outline">♥ {selectedMessage.like_count} likes</Badge>
                   </div>
                   <div className="text-sm text-muted-foreground">
                     <p>From: {selectedMessage.user_name} ({selectedMessage.user_email})</p>
@@ -249,6 +269,28 @@ export default function MessagesPage() {
                 {/* Actions */}
                 <div className="flex gap-2 pt-4 border-t">
                   <div className="flex gap-2 flex-wrap">
+                    {isAdmin && (
+                      <>
+                        {selectedMessage.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleStatusUpdate(selectedMessage.id, 'completed')}
+                          >
+                            Approve for Feed
+                          </Button>
+                        )}
+                        {selectedMessage.status !== 'rejected' && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleStatusUpdate(selectedMessage.id, 'rejected')}
+                          >
+                            Reject
+                          </Button>
+                        )}
+                      </>
+                    )}
                     {selectedMessage.status !== 'in_progress' && (
                       <Button
                         size="sm"
@@ -258,7 +300,7 @@ export default function MessagesPage() {
                         Mark In Progress
                       </Button>
                     )}
-                    {selectedMessage.status !== 'completed' && (
+                    {selectedMessage.status !== 'completed' && !isAdmin && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -267,7 +309,7 @@ export default function MessagesPage() {
                         Mark Completed
                       </Button>
                     )}
-                    {selectedMessage.status !== 'rejected' && (
+                    {selectedMessage.status !== 'rejected' && !isAdmin && (
                       <Button
                         size="sm"
                         variant="outline"

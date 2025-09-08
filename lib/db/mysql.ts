@@ -38,11 +38,13 @@ export async function initializeMessagesTable() {
       category VARCHAR(100),
       priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
       status ENUM('pending', 'in_progress', 'completed', 'rejected') DEFAULT 'pending',
+      like_count INT DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_user_id (user_id),
       INDEX idx_status (status),
-      INDEX idx_created_at (created_at)
+      INDEX idx_created_at (created_at),
+      INDEX idx_like_count (like_count)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
   `;
 
@@ -51,6 +53,30 @@ export async function initializeMessagesTable() {
     console.log('Messages table initialized successfully');
   } catch (error) {
     console.error('Error initializing messages table:', error);
+    throw error;
+  }
+}
+
+// Initialize message likes table
+export async function initializeMessageLikesTable() {
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS message_likes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      message_id INT NOT NULL,
+      user_id VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+      UNIQUE KEY unique_user_message (user_id, message_id),
+      INDEX idx_message_id (message_id),
+      INDEX idx_user_id (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  `;
+
+  try {
+    await executeQuery(createTableQuery);
+    console.log('Message likes table initialized successfully');
+  } catch (error) {
+    console.error('Error initializing message likes table:', error);
     throw error;
   }
 }

@@ -33,6 +33,9 @@ export default function SubmitPage() {
 
   // Get user's existing messages to show limits
   const { data: messagesData, mutate } = useSWR('/api/messages', fetcher);
+  
+  // Get user subscription data to determine plan
+  const { data: userData } = useSWR('/api/user', fetcher);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,8 +83,8 @@ export default function SubmitPage() {
   const userMessages = messagesData?.messages || [];
   const messageCount = userMessages.length;
 
-  // Determine user's plan and limits (this would come from user data in a real app)
-  const isPro = false; // You can get this from user context or API
+  // Determine user's plan and limits from actual subscription data
+  const isPro = userData?.stripeSubscriptionId && userData?.stripeSubscriptionStatus === 'active';
   const messageLimit = isPro ? 3 : 1;
   const remainingSlots = messageLimit - messageCount;
   const canSubmit = remainingSlots > 0;
