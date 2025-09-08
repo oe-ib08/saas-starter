@@ -19,6 +19,8 @@ import { PasswordStrengthIndicator } from '@/components/ui/password-strength';
 import { Switch } from '@/components/ui/switch';
 import { Select } from '@/components/ui/select';
 import { EmailVerificationBanner } from '@/components/auth/email-verification-banner';
+import { ActiveSessions } from '@/components/auth/active-sessions';
+import { AccountSecurityDashboard } from '@/components/auth/account-security-dashboard';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -863,6 +865,12 @@ export default function ProfilePage() {
               </div>
             </CardContent>
           </Card>
+          
+          {/* Active Sessions */}
+          <ActiveSessions />
+          
+          {/* Account Security Dashboard */}
+          <AccountSecurityDashboard />
 
           {/* Danger Zone */}
           <Card className="border-destructive">
