@@ -27,10 +27,22 @@ import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { User, TeamDataWithMembers } from '@/lib/db/schema';
 import useSWR, { mutate } from 'swr';
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
 import { PlanBadge } from '@/components/ui/plan-badge';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = async (url: string) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    // For auth-related endpoints, don't throw an error if unauthorized
+    if (res.status === 401 || res.status === 403) {
+      return null;
+    }
+    // For other errors, still return null to prevent crashes
+    console.warn(`API call to ${url} failed with status ${res.status}`);
+    return null;
+  }
+  return res.json();
+};
 
 // Navigation links array to be used in both desktop and mobile menus
 const navigationLinks = [
@@ -42,9 +54,23 @@ const navigationLinks = [
 
 function UserMenu() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const [showFallback, setShowFallback] = useState(false);
+  const { data: user, isLoading, error } = useSWR<User>('/api/user', fetcher);
   const { data: team } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
   const router = useRouter();
+
+  // Set a timeout to show fallback buttons if loading takes too long
+  useEffect(() => {
+    if (isLoading) {
+      const timeout = setTimeout(() => {
+        setShowFallback(true);
+      }, 2000); // Show fallback after 2 seconds
+
+      return () => clearTimeout(timeout);
+    } else {
+      setShowFallback(false);
+    }
+  }, [isLoading]);
 
   async function handleSignOut() {
     try {
@@ -60,7 +86,17 @@ function UserMenu() {
     }
   }
 
-  if (!user) {
+  // Show loading state during sign out transition, but not indefinitely
+  if (isLoading && !error && !showFallback) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="animate-pulse rounded-full h-9 w-9 bg-muted"></div>
+      </div>
+    );
+  }
+
+  // Show sign in/get started buttons if user is not authenticated, if there's an auth error, or if loading is taking too long
+  if (!user || error || showFallback) {
     return (
       <>
         <Button asChild variant="ghost" size="sm" className="text-sm">
@@ -80,11 +116,11 @@ function UserMenu() {
         <DropdownMenuTrigger>
           <div className="relative">
             <Avatar className="cursor-pointer size-9">
-              <AvatarImage src={user.image || ''} alt={user.name || ''} />
+              <AvatarImage src={user?.image || ''} alt={user?.name || ''} />
               <AvatarFallback>
-                {user.name
+                {user?.name
                   ? user.name.split(' ').map((n) => n[0]).join('')
-                  : user.email.split('@')[0].substring(0, 2).toUpperCase()}
+                  : user?.email ? user.email.split('@')[0].substring(0, 2).toUpperCase() : 'U'}
               </AvatarFallback>
             </Avatar>
             <PlanBadge planName={team?.planName} />
@@ -92,9 +128,9 @@ function UserMenu() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="flex flex-col gap-1">
           <DropdownMenuItem className="cursor-pointer">
-            <Link href="/dashboard" className="flex w-full items-center">
+            <Link href="/profile" className="flex w-full items-center">
               <Home className="mr-2 h-4 w-4" />
-              <span>Dashboard</span>
+              <span>Profile</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem 
