@@ -13,6 +13,7 @@ import { User as UserType } from '@/lib/db/schema';
 import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { useDebouncedCallback } from '@/lib/hooks/use-debounced-callback';
+import { cn } from '@/lib/utils';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -34,6 +35,10 @@ export default function ProfilePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState({
+    name: '',
+    email: '',
+  });
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -57,6 +62,39 @@ export default function ProfilePage() {
   });
 
   const router = useRouter();
+
+  // Validation functions
+  const validateName = (name: string): string => {
+    if (name.length < 2) {
+      return 'Name must be at least 2 characters long';
+    }
+    return '';
+  };
+
+  const validateEmail = (email: string): string => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    return '';
+  };
+
+  // Real-time validation handler
+  const handleValidation = useCallback((field: 'name' | 'email', value: string) => {
+    let error = '';
+    if (field === 'name') {
+      error = validateName(value);
+    } else if (field === 'email') {
+      error = validateEmail(value);
+    }
+    
+    setValidationErrors(prev => ({
+      ...prev,
+      [field]: error
+    }));
+    
+    return error === '';
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -118,25 +156,69 @@ export default function ProfilePage() {
 
   // Handle form changes and trigger auto-save
   const handleFormChange = useCallback((updates: Partial<typeof formData>) => {
+    // Validate fields if they're being updated
+    Object.entries(updates).forEach(([key, value]) => {
+      if ((key === 'name' || key === 'email') && typeof value === 'string') {
+        handleValidation(key, value);
+      }
+    });
+    
     setFormData(prev => ({ ...prev, ...updates }));
     if (isEditing) {
       debouncedAutoSave();
     }
-  }, [isEditing, debouncedAutoSave]);
+  }, [isEditing, debouncedAutoSave, handleValidation]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // In a real app, you would upload to a service like AWS S3 or Cloudinary
-      // For now, we'll create a data URL
+    if (!file) return;
+
+    // File size validation (max 2MB)
+    const maxSize = 2 * 1024 * 1024; // 2MB in bytes
+    if (file.size > maxSize) {
+      setError('File size must be less than 2MB');
+      return;
+    }
+
+    // Format validation (jpg, png, webp)
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a valid image file (JPG, PNG, or WebP)');
+      return;
+    }
+
+    // Clear any previous errors
+    setError(null);
+
+    try {
+      // Create image preview before upload
       const reader = new FileReader();
       reader.onload = (e) => {
-        setFormData(prev => ({
-          ...prev,
-          image: e.target?.result as string,
-        }));
+        const imageUrl = e.target?.result as string;
+        
+        // Create an image element to check dimensions and optimize
+        const img = new Image();
+        img.onload = () => {
+          // Optional: You could add dimension validation here
+          // if (img.width < 100 || img.height < 100) {
+          //   setError('Image must be at least 100x100 pixels');
+          //   return;
+          // }
+
+          // Update form data with the new image
+          handleFormChange({ image: imageUrl });
+        };
+        img.src = imageUrl;
       };
+      
+      reader.onerror = () => {
+        setError('Failed to read image file');
+      };
+      
       reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error processing image:', error);
+      setError('Failed to process image file');
     }
   };
 
@@ -298,26 +380,35 @@ export default function ProfilePage() {
               )}
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <Avatar className="h-24 w-24">
-                    <AvatarImage src={formData.image} alt={formData.name} />
-                    <AvatarFallback className="text-lg">
-                      {formData.name
-                        ? formData.name.split(' ').map((n) => n[0]).join('')
-                        : formData.email.split('@')[0].substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+              <div className="flex items-start gap-6">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="relative">
+                    <Avatar className="h-24 w-24">
+                      <AvatarImage src={formData.image} alt={formData.name} />
+                      <AvatarFallback className="text-lg">
+                        {formData.name
+                          ? formData.name.split(' ').map((n) => n[0]).join('')
+                          : formData.email.split('@')[0].substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    {isEditing && (
+                      <label className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors">
+                        <Camera className="h-4 w-4" />
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/webp"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
                   {isEditing && (
-                    <label className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90">
-                      <Camera className="h-4 w-4" />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
+                    <div className="text-xs text-muted-foreground text-center">
+                      <p>Click to upload</p>
+                      <p>Max 2MB</p>
+                      <p>JPG, PNG, WebP</p>
+                    </div>
                   )}
                 </div>
                 <div className="flex-1 space-y-4">
@@ -328,7 +419,14 @@ export default function ProfilePage() {
                       value={formData.name}
                       onChange={(e) => handleFormChange({ name: e.target.value })}
                       disabled={!isEditing}
+                      className={cn(
+                        validationErrors.name && isEditing ? "border-red-500 focus:border-red-500" : "",
+                        !validationErrors.name && formData.name && isEditing ? "border-green-500" : ""
+                      )}
                     />
+                    {validationErrors.name && isEditing && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.name}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="email">Email Address</Label>
@@ -338,7 +436,14 @@ export default function ProfilePage() {
                       value={formData.email}
                       onChange={(e) => handleFormChange({ email: e.target.value })}
                       disabled={!isEditing}
+                      className={cn(
+                        validationErrors.email && isEditing ? "border-red-500 focus:border-red-500" : "",
+                        !validationErrors.email && formData.email && isEditing ? "border-green-500" : ""
+                      )}
                     />
+                    {validationErrors.email && isEditing && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.email}</p>
+                    )}
                   </div>
                 </div>
               </div>
