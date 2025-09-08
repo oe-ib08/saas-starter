@@ -18,6 +18,11 @@ import { useTheme } from '@/components/providers/theme-provider';
 import { PasswordStrengthIndicator } from '@/components/ui/password-strength';
 import { Switch } from '@/components/ui/switch';
 import { Select } from '@/components/ui/select';
+import { EmailVerificationBanner } from '@/components/auth/email-verification-banner';
+import { ActiveSessions } from '@/components/auth/active-sessions';
+import { AccountSecurityDashboard } from '@/components/auth/account-security-dashboard';
+import { SocialAccountLinking } from '@/components/auth/social-account-linking';
+import { AccountDangerZone } from '@/components/auth/account-danger-zone';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -36,7 +41,6 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState({
@@ -336,23 +340,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    try {
-      const response = await fetch('/api/user', {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        await authClient.signOut();
-        router.push('/sign-up');
-      } else {
-        console.error('Failed to delete account');
-      }
-    } catch (error) {
-      console.error('Error deleting account:', error);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -388,6 +375,16 @@ export default function ProfilePage() {
             {error}
           </div>
         )}
+        
+        {/* Email Verification Banner */}
+        <div className="mt-4">
+          <EmailVerificationBanner 
+            user={{
+              email: user.email,
+              emailVerified: user.emailVerified
+            }}
+          />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-12">
@@ -852,49 +849,18 @@ export default function ProfilePage() {
               </div>
             </CardContent>
           </Card>
+          
+          {/* Active Sessions */}
+          <ActiveSessions />
+          
+          {/* Account Security Dashboard */}
+          <AccountSecurityDashboard />
+          
+          {/* Social Account Linking */}
+          <SocialAccountLinking />
 
           {/* Danger Zone */}
-          <Card className="border-destructive">
-            <CardHeader>
-              <CardTitle className="text-destructive flex items-center gap-2">
-                <Trash2 className="h-5 w-5" />
-                Danger Zone
-              </CardTitle>
-              <CardDescription>
-                Irreversible actions that will permanently affect your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!showDeleteConfirm ? (
-                <Button 
-                  variant="destructive"
-                  onClick={() => setShowDeleteConfirm(true)}
-                >
-                  Delete Account
-                </Button>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Are you sure you want to delete your account? This action cannot be undone.
-                  </p>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="destructive"
-                      onClick={handleDeleteAccount}
-                    >
-                      Yes, Delete My Account
-                    </Button>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setShowDeleteConfirm(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <AccountDangerZone userEmail={user.email} />
         </div>
       </div>
     </div>
