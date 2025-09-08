@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { SWRConfig } from 'swr';
 import { SessionProvider } from '@/components/providers/session-provider';
+import { ThemeProvider } from '@/components/providers/theme-provider';
 
 export const metadata: Metadata = {
   title: 'Next.js SaaS Starter',
@@ -20,19 +21,22 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className="dark bg-background text-foreground font-sans"
+      className="bg-background text-foreground font-sans"
+      suppressHydrationWarning
     >
       <body className="min-h-[100dvh] bg-background">
-        <SessionProvider>
-          <SWRConfig
-            value={{
-              // Remove fallback data that requires authentication
-              // Client-side components will fetch this data as needed
-            }}
-          >
-            {children}
-          </SWRConfig>
-        </SessionProvider>
+        <ThemeProvider defaultTheme="system" storageKey="ui-theme">
+          <SessionProvider>
+            <SWRConfig
+              value={{
+                // Remove fallback data that requires authentication
+                // Client-side components will fetch this data as needed
+              }}
+            >
+              {children}
+            </SWRConfig>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
