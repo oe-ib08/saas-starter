@@ -47,6 +47,7 @@ const fetcher = async (url: string) => {
 // Navigation links array to be used in both desktop and mobile menus
 const navigationLinks = [
   { href: "/", label: "Home", active: true },
+  { href: "/feed", label: "Feed", active: false },
   { href: "/submit", label: "Submit", active: false },
   { href: "/messages", label: "Messages", active: false },
   { href: "/pricing", label: "Pricing" },

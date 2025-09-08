@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { executeQuery } from '@/lib/db/mysql';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const messageId = params.id;
+    const { id: messageId } = await params;
 
     // Check if message exists
     const messageQuery = 'SELECT id FROM messages WHERE id = ?';
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth.api.getSession({
       headers: request.headers,
@@ -65,7 +65,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const messageId = params.id;
+    const { id: messageId } = await params;
 
     // Check if like exists
     const existingLikeQuery = 'SELECT id FROM message_likes WHERE user_id = ? AND message_id = ?';
