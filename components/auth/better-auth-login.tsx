@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { CircleIcon, Loader2 } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { cn } from "@/lib/utils";
+import { getEnhancedErrorMessage } from "@/lib/utils/error-messages";
 import {
   Card,
   CardContent,
@@ -27,6 +28,7 @@ export function BetterAuthLogin({ mode = 'signin' }: { mode?: 'signin' | 'signup
     email: '',
     password: '',
     name: '',
+    rememberMe: false,
   });
   const [checkingSession, setCheckingSession] = useState(true);
 
@@ -67,17 +69,18 @@ export function BetterAuthLogin({ mode = 'signin' }: { mode?: 'signin' | 'signup
         });
 
         if (result.error) {
-          setError(result.error.message || 'An error occurred during sign up');
+          setError(getEnhancedErrorMessage(result.error.message || 'An error occurred during sign up'));
           return;
         }
       } else {
         const result = await authClient.signIn.email({
           email: formData.email,
           password: formData.password,
+          rememberMe: formData.rememberMe,
         });
 
         if (result.error) {
-          setError(result.error.message || 'Invalid email or password');
+          setError(getEnhancedErrorMessage(result.error.message || 'Invalid email or password'));
           return;
         }
       }
@@ -86,7 +89,7 @@ export function BetterAuthLogin({ mode = 'signin' }: { mode?: 'signin' | 'signup
       router.push(redirect || '/dashboard');
     } catch (error) {
       console.error('Auth error:', error);
-      setError('An unexpected error occurred');
+      setError(getEnhancedErrorMessage('An unexpected error occurred'));
     } finally {
       setLoading(false);
     }
@@ -103,7 +106,7 @@ export function BetterAuthLogin({ mode = 'signin' }: { mode?: 'signin' | 'signup
       });
     } catch (error) {
       console.error('Social auth error:', error);
-      setError('Social authentication failed');
+      setError(getEnhancedErrorMessage('Social authentication failed'));
     }
   };
 
@@ -227,6 +230,21 @@ export function BetterAuthLogin({ mode = 'signin' }: { mode?: 'signin' | 'signup
                         autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                       />
                     </div>
+                    
+                    {mode === 'signin' && (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          id="rememberMe"
+                          type="checkbox"
+                          checked={formData.rememberMe}
+                          onChange={(e) => setFormData(prev => ({ ...prev, rememberMe: e.target.checked }))}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <Label htmlFor="rememberMe" className="text-sm font-normal">
+                          Remember me for 30 days
+                        </Label>
+                      </div>
+                    )}
                     
                     {error && (
                       <div className="text-destructive text-sm text-center">{error}</div>

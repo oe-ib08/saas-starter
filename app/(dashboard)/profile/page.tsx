@@ -18,6 +18,7 @@ import { useTheme } from '@/components/providers/theme-provider';
 import { PasswordStrengthIndicator } from '@/components/ui/password-strength';
 import { Switch } from '@/components/ui/switch';
 import { Select } from '@/components/ui/select';
+import { EmailVerificationBanner } from '@/components/auth/email-verification-banner';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -388,6 +389,16 @@ export default function ProfilePage() {
             {error}
           </div>
         )}
+        
+        {/* Email Verification Banner */}
+        <div className="mt-4">
+          <EmailVerificationBanner 
+            user={{
+              email: user.email,
+              emailVerified: user.emailVerified
+            }}
+          />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-12">

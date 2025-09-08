@@ -16,11 +16,15 @@ export const auth = betterAuth({
     baseURL: process.env.BETTER_AUTH_URL || process.env.BASE_URL || "http://localhost:3000",
     emailAndPassword: {
         enabled: true,
-        requireEmailVerification: false,
+        requireEmailVerification: true,
+        autoSignInAfterVerification: true,
     },
     session: {
-        expiresIn: 60 * 60 * 24 * 7, // 7 days
+        expiresIn: 60 * 60 * 24 * 7, // 7 days default
         updateAge: 60 * 60 * 24, // 1 day
+        cookieCache: {
+            maxAge: 60 * 60 * 24 * 30, // 30 days for remember me
+        }
     },
     socialProviders: {
         google: {
