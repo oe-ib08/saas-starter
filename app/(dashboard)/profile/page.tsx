@@ -14,6 +14,8 @@ import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import { useDebouncedCallback } from '@/lib/hooks/use-debounced-callback';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/components/providers/theme-provider';
+import { PasswordStrengthIndicator } from '@/components/ui/password-strength';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -62,6 +64,7 @@ export default function ProfilePage() {
   });
 
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
 
   // Validation functions
   const validateName = (name: string): string => {
@@ -98,19 +101,24 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
+      const userTheme = (user.theme || theme) as 'light' | 'dark' | 'system';
       setFormData({
         name: user.name || '',
         email: user.email || '',
         image: user.image || '',
-        theme: user.theme || 'light',
+        theme: userTheme,
         notifications: user.notifications || {
           email: true,
           push: true,
           marketing: false,
         },
       });
+      // Sync with theme provider if user has a saved theme preference
+      if (user.theme && user.theme !== theme) {
+        setTheme(user.theme as 'light' | 'dark' | 'system');
+      }
     }
-  }, [user]);
+  }, [user, theme, setTheme]);
 
   const handleSaveProfile = async (showSuccessMessage = true) => {
     const isSavingState = showSuccessMessage ? setIsSaving : setIsAutoSaving;
@@ -168,6 +176,17 @@ export default function ProfilePage() {
       debouncedAutoSave();
     }
   }, [isEditing, debouncedAutoSave, handleValidation]);
+
+  // Handle theme changes with immediate application
+  const handleThemeChange = useCallback((newTheme: string) => {
+    const themeValue = newTheme as 'light' | 'dark' | 'system';
+    
+    // Immediately apply theme
+    setTheme(themeValue);
+    
+    // Update form data and trigger auto-save
+    handleFormChange({ theme: themeValue });
+  }, [setTheme, handleFormChange]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -464,7 +483,7 @@ export default function ProfilePage() {
             <CardContent>
               <RadioGroup
                 value={formData.theme}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, theme: value }))}
+                onValueChange={handleThemeChange}
                 className="grid grid-cols-1 md:grid-cols-3 gap-4"
               >
                 <div className="flex items-center space-x-2 border rounded-lg p-4">
@@ -570,6 +589,33 @@ export default function ProfilePage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex justify-end mb-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const showAll = !showPassword.current || !showPassword.new || !showPassword.confirm;
+                    setShowPassword({
+                      current: showAll,
+                      new: showAll,
+                      confirm: showAll,
+                    });
+                  }}
+                >
+                  {showPassword.current && showPassword.new && showPassword.confirm ? (
+                    <>
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Hide All
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Show All
+                    </>
+                  )}
+                </Button>
+              </div>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="currentPassword">Current Password</Label>
@@ -612,6 +658,7 @@ export default function ProfilePage() {
                       {showPassword.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
                   </div>
+                  <PasswordStrengthIndicator password={passwordData.newPassword} />
                 </div>
                 <div>
                   <Label htmlFor="confirmPassword">Confirm New Password</Label>
