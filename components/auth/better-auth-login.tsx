@@ -18,12 +18,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export function BetterAuthLogin({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
+export function BetterAuthLogin({ 
+  mode = 'signin', 
+  initialError 
+}: { 
+  mode?: 'signin' | 'signup';
+  initialError?: string;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const redirect = searchParams.get('redirect');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError || '');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -73,6 +79,28 @@ export function BetterAuthLogin({ mode = 'signin' }: { mode?: 'signin' | 'signup
           return;
         }
       } else {
+        // First check if user is deleted before attempting sign-in
+        try {
+          const checkResponse = await fetch('/api/user/check-status', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: formData.email }),
+          });
+          
+          if (checkResponse.ok) {
+            const checkResult = await checkResponse.json();
+            if (checkResult.deleted) {
+              setError('Your account has been deactivated. Please contact support for assistance.');
+              return;
+            }
+          }
+        } catch (error) {
+          // Continue with normal sign-in if check fails
+          console.warn('User status check failed:', error);
+        }
+
         const result = await authClient.signIn.email({
           email: formData.email,
           password: formData.password,

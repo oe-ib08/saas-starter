@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { executeQuery, initializeMessagesTable, initializeMessageLikesTable } from '@/lib/db/mysql';
+import { db } from '@/lib/db/drizzle';
+import { messages, messageLikes, user } from '@/lib/db/schema';
+import { desc, eq, and, sql } from 'drizzle-orm';
 import { getUserWithSubscription } from '@/lib/db/queries';
-
-// Initialize tables on first import
-initializeMessagesTable().catch(console.error);
-initializeMessageLikesTable().catch(console.error);
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,31 +18,50 @@ export async function GET(request: NextRequest) {
     // Check if user is admin (you can enhance this logic)
     const isAdmin = session.user.email === 'admin@example.com' || session.user.role === 'admin';
     
-    let query: string;
-    let params: any[] = [];
+    let messageResults;
 
     if (isAdmin) {
       // Admin can see all messages with like counts
-      query = `
-        SELECT id, user_id, user_email, user_name, title, content, category, 
-               priority, status, like_count, created_at, updated_at
-        FROM messages
-        ORDER BY created_at DESC
-      `;
+      messageResults = await db
+        .select({
+          id: messages.id,
+          userId: messages.userId,
+          userEmail: messages.userEmail,
+          userName: messages.userName,
+          title: messages.title,
+          content: messages.content,
+          category: messages.category,
+          priority: messages.priority,
+          status: messages.status,
+          likeCount: messages.likeCount,
+          createdAt: messages.createdAt,
+          updatedAt: messages.updatedAt,
+        })
+        .from(messages)
+        .orderBy(desc(messages.createdAt));
     } else {
       // Users can only see their own messages with like counts
-      query = `
-        SELECT id, user_id, user_email, user_name, title, content, category,
-               priority, status, like_count, created_at, updated_at
-        FROM messages
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-      `;
-      params = [session.user.id];
+      messageResults = await db
+        .select({
+          id: messages.id,
+          userId: messages.userId,
+          userEmail: messages.userEmail,
+          userName: messages.userName,
+          title: messages.title,
+          content: messages.content,
+          category: messages.category,
+          priority: messages.priority,
+          status: messages.status,
+          likeCount: messages.likeCount,
+          createdAt: messages.createdAt,
+          updatedAt: messages.updatedAt,
+        })
+        .from(messages)
+        .where(eq(messages.userId, session.user.id))
+        .orderBy(desc(messages.createdAt));
     }
 
-    const messages = await executeQuery(query, params);
-    return NextResponse.json({ messages, isAdmin });
+    return NextResponse.json({ messages: messageResults, isAdmin });
 
   } catch (error) {
     console.error('Error fetching messages:', error);
@@ -69,9 +86,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check user's message count and plan limits
-    const countQuery = 'SELECT COUNT(*) as count FROM messages WHERE user_id = ?';
-    const countResult = await executeQuery(countQuery, [session.user.id]) as any;
-    const messageCount = countResult[0]?.count || 0;
+    const messageCountResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .where(eq(messages.userId, session.user.id));
+    const messageCount = messageCountResult[0]?.count || 0;
 
     // Define limits based on plan
     const isPro = user.stripeSubscriptionId && user.stripeSubscriptionStatus === 'active';
@@ -92,26 +111,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
     }
 
-    const insertQuery = `
-      INSERT INTO messages (user_id, user_email, user_name, title, content, category, priority)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    const params = [
-      session.user.id,
-      session.user.email,
-      session.user.name || 'Anonymous',
+    const insertResult = await db.insert(messages).values({
+      userId: session.user.id,
+      userEmail: session.user.email || '',
+      userName: session.user.name || 'Anonymous',
       title,
       content,
-      category || 'general',
-      priority || 'medium'
-    ];
-
-    const result = await executeQuery(insertQuery, params);
+      category: category || 'general',
+      priority: priority || 'medium'
+    }).returning({ id: messages.id });
     
     return NextResponse.json({ 
       success: true, 
-      messageId: (result as any).insertId,
+      messageId: insertResult[0].id,
       remainingSlots: messageLimit - messageCount - 1
     });
 
@@ -139,22 +151,29 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check if user owns the message or is admin
-    const checkQuery = 'SELECT user_id FROM messages WHERE id = ?';
-    const messageResult = await executeQuery(checkQuery, [messageId]) as any;
+    const messageResult = await db
+      .select({ userId: messages.userId })
+      .from(messages)
+      .where(eq(messages.id, parseInt(messageId)));
     
     if (!messageResult[0]) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 });
     }
 
-    const isOwner = messageResult[0].user_id === session.user.id;
+    const isOwner = messageResult[0].userId === session.user.id;
     const isAdmin = session.user.email === 'admin@example.com' || session.user.role === 'admin';
 
     if (!isOwner && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const updateQuery = 'UPDATE messages SET status = ?, updated_at = NOW() WHERE id = ?';
-    await executeQuery(updateQuery, [status, messageId]);
+    await db
+      .update(messages)
+      .set({ 
+        status,
+        updatedAt: new Date()
+      })
+      .where(eq(messages.id, parseInt(messageId)));
 
     return NextResponse.json({ success: true });
 
@@ -182,22 +201,25 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if user owns the message or is admin
-    const checkQuery = 'SELECT user_id FROM messages WHERE id = ?';
-    const messageResult = await executeQuery(checkQuery, [messageId]) as any;
+    const messageResult = await db
+      .select({ userId: messages.userId })
+      .from(messages)
+      .where(eq(messages.id, parseInt(messageId)));
     
     if (!messageResult[0]) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 });
     }
 
-    const isOwner = messageResult[0].user_id === session.user.id;
+    const isOwner = messageResult[0].userId === session.user.id;
     const isAdmin = session.user.email === 'admin@example.com' || session.user.role === 'admin';
 
     if (!isOwner && !isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const deleteQuery = 'DELETE FROM messages WHERE id = ?';
-    await executeQuery(deleteQuery, [messageId]);
+    await db
+      .delete(messages)
+      .where(eq(messages.id, parseInt(messageId)));
 
     return NextResponse.json({ success: true });
 

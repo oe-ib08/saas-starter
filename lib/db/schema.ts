@@ -6,6 +6,7 @@ import {
   timestamp,
   integer,
   boolean,
+  unique,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -20,6 +21,12 @@ export const user = pgTable('better_auth_user', {
   updatedAt: timestamp('updatedAt').notNull(),
   role: varchar('role', { length: 20 }).notNull().default('member'),
   deletedAt: timestamp('deleted_at'),
+  // Stripe subscription fields
+  stripeCustomerId: text('stripe_customer_id').unique(),
+  stripeSubscriptionId: text('stripe_subscription_id').unique(),
+  stripeProductId: text('stripe_product_id'),
+  planName: varchar('plan_name', { length: 50 }),
+  subscriptionStatus: varchar('subscription_status', { length: 20 }),
 });
 
 export const session = pgTable('better_auth_session', {
@@ -127,11 +134,30 @@ export const messages = pgTable('messages', {
   userId: text('user_id')
     .notNull()
     .references(() => user.id),
-  name: varchar('name', { length: 8 }).notNull(),
-  message: varchar('message', { length: 100 }).notNull(),
+  userEmail: varchar('user_email', { length: 255 }).notNull(),
+  userName: varchar('user_name', { length: 255 }),
+  title: varchar('title', { length: 500 }).notNull(),
+  content: text('content').notNull(),
+  category: varchar('category', { length: 100 }),
+  priority: varchar('priority', { length: 20 }).notNull().default('medium'), // 'low', 'medium', 'high'
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending', 'in_progress', 'completed', 'rejected'
+  likeCount: integer('like_count').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+export const messageLikes = pgTable('message_likes', {
+  id: serial('id').primaryKey(),
+  messageId: integer('message_id')
+    .notNull()
+    .references(() => messages.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  uniqueUserMessage: unique('unique_user_message').on(table.userId, table.messageId),
+}));
 
 // Relations
 export const teamsRelations = relations(teams, ({ many }) => ({
@@ -147,6 +173,8 @@ export const userRelations = relations(user, ({ many, one }) => ({
   teamMembers: many(teamMembers),
   invitationsSent: many(invitations),
   activityLogs: many(activityLogs),
+  messages: many(messages),
+  messageLikes: many(messageLikes),
   preferences: one(userPreferences, {
     fields: [user.id],
     references: [userPreferences.userId],
@@ -185,9 +213,21 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
   }),
 }));
 
-export const messagesRelations = relations(messages, ({ one }) => ({
+export const messagesRelations = relations(messages, ({ one, many }) => ({
   user: one(user, {
     fields: [messages.userId],
+    references: [user.id],
+  }),
+  likes: many(messageLikes),
+}));
+
+export const messageLikesRelations = relations(messageLikes, ({ one }) => ({
+  message: one(messages, {
+    fields: [messageLikes.messageId],
+    references: [messages.id],
+  }),
+  user: one(user, {
+    fields: [messageLikes.userId],
     references: [user.id],
   }),
 }));

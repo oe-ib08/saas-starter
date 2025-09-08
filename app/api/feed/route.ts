@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { executeQuery } from '@/lib/db/mysql';
+import { db } from '@/lib/db/drizzle';
+import { messages, messageLikes, user } from '@/lib/db/schema';
+import { desc, eq, inArray, sql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,37 +20,37 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Get public feed with like counts and user's like status
-    const feedQuery = `
-      SELECT 
-        m.id,
-        m.user_id,
-        m.user_name,
-        m.title,
-        m.content,
-        m.category,
-        m.like_count,
-        m.created_at,
-        CASE WHEN ml.user_id IS NOT NULL THEN 1 ELSE 0 END as is_liked_by_user
-      FROM messages m
-      LEFT JOIN message_likes ml ON m.id = ml.message_id AND ml.user_id = ?
-      WHERE m.status IN ('pending', 'completed')
-      ORDER BY m.like_count DESC, m.created_at DESC
-      LIMIT ? OFFSET ?
-    `;
-
-    const messages = await executeQuery(feedQuery, [session.user.id, limit, offset]);
+    const feedMessages = await db
+      .select({
+        id: messages.id,
+        userId: messages.userId,
+        userName: messages.userName,
+        title: messages.title,
+        content: messages.content,
+        category: messages.category,
+        likeCount: messages.likeCount,
+        createdAt: messages.createdAt,
+        isLikedByUser: sql<number>`CASE WHEN ${messageLikes.userId} IS NOT NULL THEN 1 ELSE 0 END`.as('is_liked_by_user')
+      })
+      .from(messages)
+      .leftJoin(messageLikes, 
+        sql`${messageLikes.messageId} = ${messages.id} AND ${messageLikes.userId} = ${session.user.id}`
+      )
+      .where(inArray(messages.status, ['pending', 'completed']))
+      .orderBy(desc(messages.likeCount), desc(messages.createdAt))
+      .limit(limit)
+      .offset(offset);
 
     // Get total count for pagination
-    const countQuery = `
-      SELECT COUNT(*) as total 
-      FROM messages 
-      WHERE status IN ('pending', 'completed')
-    `;
-    const countResult = await executeQuery(countQuery) as any;
-    const total = countResult[0]?.total || 0;
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .where(inArray(messages.status, ['pending', 'completed']));
+    
+    const total = countResult[0]?.count || 0;
 
     return NextResponse.json({
-      messages,
+      messages: feedMessages,
       pagination: {
         page,
         limit,

@@ -1,15 +1,22 @@
 import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Create connection pool for better connection management
 const mysqlPool = mysql.createPool({
-  host: 'srv1776.hstgr.io',
-  port: 3306,
-  user: 'u718604514_optume_studios',
-  password: 'GreatLoveStay100@',
-  database: 'u718604514_optume_studios',
+  host: process.env.MYSQL_HOST,
+  port: parseInt(process.env.MYSQL_PORT || '3306'),
+  user: process.env.MYSQL_USER,
+  password: process.env.MYSQL_PASSWORD,
+  database: process.env.MYSQL_DATABASE,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 export { mysqlPool as mysqlConnection };
@@ -17,6 +24,11 @@ export { mysqlPool as mysqlConnection };
 // Helper function to execute queries
 export async function executeQuery(query: string, params: any[] = []) {
   try {
+    // Validate environment variables
+    if (!process.env.MYSQL_HOST || !process.env.MYSQL_USER || !process.env.MYSQL_PASSWORD || !process.env.MYSQL_DATABASE) {
+      throw new Error('Missing required MySQL environment variables');
+    }
+
     const [results] = await mysqlPool.execute(query, params);
     return results;
   } catch (error) {
@@ -25,8 +37,22 @@ export async function executeQuery(query: string, params: any[] = []) {
   }
 }
 
+// Test database connection
+export async function testConnection() {
+  try {
+    await executeQuery('SELECT 1');
+    console.log('MySQL connection successful');
+    return true;
+  } catch (error) {
+    console.error('MySQL connection failed:', error);
+    return false;
+  }
+}
+
 // Initialize messages table
 export async function initializeMessagesTable() {
+  console.log('Initializing messages table...');
+  
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS messages (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -59,6 +85,8 @@ export async function initializeMessagesTable() {
 
 // Initialize message likes table
 export async function initializeMessageLikesTable() {
+  console.log('Initializing message likes table...');
+  
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS message_likes (
       id INT AUTO_INCREMENT PRIMARY KEY,

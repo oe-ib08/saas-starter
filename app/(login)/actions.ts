@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import {
   User,
+  user,
   teams,
   teamMembers,
   activityLogs,
@@ -14,6 +15,55 @@ import {
 import { redirect } from 'next/navigation';
 import { getUser } from '@/lib/db/queries';
 import { authClient } from '@/lib/auth-client';
+
+// Sign-in schema
+const signInSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required')
+});
+
+// Custom sign-in action that checks for deleted users
+export async function signInAction(prevState: any, formData: FormData) {
+  try {
+    const { email, password } = signInSchema.parse({
+      email: formData.get('email'),
+      password: formData.get('password')
+    });
+
+    // Check if user exists and is not deleted
+    const userResult = await db
+      .select({ 
+        id: user.id, 
+        deletedAt: user.deletedAt,
+        emailVerified: user.emailVerified 
+      })
+      .from(user)
+      .where(eq(user.email, email))
+      .limit(1);
+
+    if (userResult[0]?.deletedAt) {
+      return { 
+        error: 'Your account has been deactivated. Please contact support for assistance.' 
+      };
+    }
+
+    // Proceed with normal sign-in using better-auth
+    const result = await authClient.signIn.email({
+      email,
+      password,
+    });
+
+    if (result.error) {
+      return { error: result.error.message || 'Invalid credentials' };
+    }
+
+    // Redirect on success
+    redirect('/dashboard');
+  } catch (error) {
+    console.error('Sign-in error:', error);
+    return { error: 'An error occurred during sign-in' };
+  }
+}
 
 async function logActivity(
   teamId: number | null | undefined,

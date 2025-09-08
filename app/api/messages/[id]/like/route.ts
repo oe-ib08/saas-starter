@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { executeQuery } from '@/lib/db/mysql';
+import { db } from '@/lib/db/drizzle';
+import { messages, messageLikes } from '@/lib/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -15,33 +17,48 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id: messageId } = await params;
 
     // Check if message exists
-    const messageQuery = 'SELECT id FROM messages WHERE id = ?';
-    const messageResult = await executeQuery(messageQuery, [messageId]) as any;
+    const messageResult = await db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(eq(messages.id, parseInt(messageId)));
     
     if (!messageResult[0]) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 });
     }
 
     // Check if user already liked this message
-    const existingLikeQuery = 'SELECT id FROM message_likes WHERE user_id = ? AND message_id = ?';
-    const existingLike = await executeQuery(existingLikeQuery, [session.user.id, messageId]) as any;
+    const existingLike = await db
+      .select({ id: messageLikes.id })
+      .from(messageLikes)
+      .where(and(
+        eq(messageLikes.userId, session.user.id),
+        eq(messageLikes.messageId, parseInt(messageId))
+      ));
 
     if (existingLike[0]) {
       return NextResponse.json({ error: 'Message already liked' }, { status: 400 });
     }
 
     // Add like
-    const insertLikeQuery = 'INSERT INTO message_likes (user_id, message_id) VALUES (?, ?)';
-    await executeQuery(insertLikeQuery, [session.user.id, messageId]);
+    await db.insert(messageLikes).values({
+      userId: session.user.id,
+      messageId: parseInt(messageId)
+    });
 
     // Update like count
-    const updateCountQuery = 'UPDATE messages SET like_count = like_count + 1 WHERE id = ?';
-    await executeQuery(updateCountQuery, [messageId]);
+    await db
+      .update(messages)
+      .set({ 
+        likeCount: sql`${messages.likeCount} + 1`
+      })
+      .where(eq(messages.id, parseInt(messageId)));
 
     // Get updated like count
-    const countQuery = 'SELECT like_count FROM messages WHERE id = ?';
-    const countResult = await executeQuery(countQuery, [messageId]) as any;
-    const newCount = countResult[0]?.like_count || 0;
+    const countResult = await db
+      .select({ likeCount: messages.likeCount })
+      .from(messages)
+      .where(eq(messages.id, parseInt(messageId)));
+    const newCount = countResult[0]?.likeCount || 0;
 
     return NextResponse.json({ 
       success: true, 
@@ -68,25 +85,40 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const { id: messageId } = await params;
 
     // Check if like exists
-    const existingLikeQuery = 'SELECT id FROM message_likes WHERE user_id = ? AND message_id = ?';
-    const existingLike = await executeQuery(existingLikeQuery, [session.user.id, messageId]) as any;
+    const existingLike = await db
+      .select({ id: messageLikes.id })
+      .from(messageLikes)
+      .where(and(
+        eq(messageLikes.userId, session.user.id),
+        eq(messageLikes.messageId, parseInt(messageId))
+      ));
 
     if (!existingLike[0]) {
       return NextResponse.json({ error: 'Like not found' }, { status: 404 });
     }
 
     // Remove like
-    const deleteLikeQuery = 'DELETE FROM message_likes WHERE user_id = ? AND message_id = ?';
-    await executeQuery(deleteLikeQuery, [session.user.id, messageId]);
+    await db
+      .delete(messageLikes)
+      .where(and(
+        eq(messageLikes.userId, session.user.id),
+        eq(messageLikes.messageId, parseInt(messageId))
+      ));
 
     // Update like count
-    const updateCountQuery = 'UPDATE messages SET like_count = GREATEST(like_count - 1, 0) WHERE id = ?';
-    await executeQuery(updateCountQuery, [messageId]);
+    await db
+      .update(messages)
+      .set({ 
+        likeCount: sql`GREATEST(${messages.likeCount} - 1, 0)`
+      })
+      .where(eq(messages.id, parseInt(messageId)));
 
     // Get updated like count
-    const countQuery = 'SELECT like_count FROM messages WHERE id = ?';
-    const countResult = await executeQuery(countQuery, [messageId]) as any;
-    const newCount = countResult[0]?.like_count || 0;
+    const countResult = await db
+      .select({ likeCount: messages.likeCount })
+      .from(messages)
+      .where(eq(messages.id, parseInt(messageId)));
+    const newCount = countResult[0]?.likeCount || 0;
 
     return NextResponse.json({ 
       success: true, 
